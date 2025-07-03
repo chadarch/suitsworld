@@ -1,84 +1,163 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Star, Search, Filter } from "lucide-react";
+import { Slider } from "@/components/ui/slider";
+import { Input } from "@/components/ui/input";
+import { Star, Filter, Grid, List, Search } from "lucide-react";
 import { Link } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import { productAPI } from "@/lib/api";
+
+interface Product {
+  _id: string;
+  name: string;
+  price: number;
+  comparePrice?: number;
+  images: { url: string; alt?: string }[];
+  category: string;
+  subcategory: string;
+  featured?: boolean;
+  stockStatus: string;
+  shortDescription?: string;
+  rating?: number;
+  reviews?: number;
+  colors?: string[];
+  sizes?: string[];
+}
 
 const WomensCategory = () => {
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const [sortBy, setSortBy] = useState("popularity");
+  const [products, setProducts] = useState<Product[]>([]);
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState('name');
+  const [priceRange, setPriceRange] = useState([0, 1000]);
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [selectedColors, setSelectedColors] = useState<string[]>([]);
+  const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
+  const [showFilters, setShowFilters] = useState(false);
 
-  const products = [
-    {
-      id: 5,
-      name: "Executive Business Pantsuit",
-      price: 649,
-      originalPrice: 849,
-      image: "https://images.unsplash.com/photo-1594736797933-d0dec65ba2ac?w=300&h=400&fit=crop",
-      rating: 4.9,
-      reviews: 98,
-      category: "Business Suits",
-      sizes: ["2", "4", "6", "8", "10", "12"],
-      colors: ["Navy", "Charcoal", "Black"],
-      badge: "Best Seller"
-    },
-    {
-      id: 6,
-      name: "Elegant Wedding Suit",
-      price: 799,
-      originalPrice: 1099,
-      image: "https://images.unsplash.com/photo-1594736797933-d0dec65ba2ac?w=300&h=400&fit=crop",
-      rating: 5.0,
-      reviews: 67,
-      category: "Wedding Suits",
-      sizes: ["2", "4", "6", "8", "10"],
-      colors: ["Ivory", "Blush", "Navy"],
-      badge: "Premium"
-    },
-    {
-      id: 7,
-      name: "Cocktail Blazer Set",
-      price: 499,
-      originalPrice: 699,
-      image: "https://images.unsplash.com/photo-1594736797933-d0dec65ba2ac?w=300&h=400&fit=crop",
-      rating: 4.7,
-      reviews: 124,
-      category: "Cocktail Suits",
-      sizes: ["2", "4", "6", "8", "10", "12"],
-      colors: ["Black", "Burgundy", "Emerald"],
-      badge: "New Arrival"
-    },
-    {
-      id: 8,
-      name: "Professional Skirt Suit",
-      price: 579,
-      originalPrice: 749,
-      image: "https://images.unsplash.com/photo-1594736797933-d0dec65ba2ac?w=300&h=400&fit=crop",
-      rating: 4.6,
-      reviews: 89,
-      category: "Skirt Suits",
-      sizes: ["2", "4", "6", "8", "10", "12", "14"],
-      colors: ["Navy", "Gray", "Black"],
-      badge: "Classic"
+  useEffect(() => {
+    const fetchProducts = async () => {
+      setLoading(true);
+      try {
+        const res = await productAPI.getAll({ category: 'womens', status: 'active' });
+        const productsData = res.data || [];
+        setProducts(productsData);
+        setFilteredProducts(productsData);
+        
+        // Set price range based on actual products
+        if (productsData.length > 0) {
+          const prices = productsData.map((p: Product) => p.price);
+          const minPrice = Math.min(...prices);
+          const maxPrice = Math.max(...prices);
+          setPriceRange([minPrice, maxPrice]);
+        }
+      } catch (err) {
+        console.error("Error fetching women's products:", err);
+        setProducts([]);
+        setFilteredProducts([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProducts();
+  }, []);
+
+  useEffect(() => {
+    let filtered = [...products];
+
+    // Search filter
+    if (searchTerm) {
+      filtered = filtered.filter(product =>
+        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        product.shortDescription?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
     }
+
+    // Category filter
+    if (selectedCategory !== 'all') {
+      filtered = filtered.filter(product => product.subcategory === selectedCategory);
+    }
+
+    // Price filter
+    filtered = filtered.filter(product => 
+      product.price >= priceRange[0] && product.price <= priceRange[1]
+    );
+
+    // Color filter
+    if (selectedColors.length > 0) {
+      filtered = filtered.filter(product =>
+        product.colors?.some(color => selectedColors.includes(color))
+      );
+    }
+
+    // Size filter
+    if (selectedSizes.length > 0) {
+      filtered = filtered.filter(product =>
+        product.sizes?.some(size => selectedSizes.includes(size))
+      );
+    }
+
+    // Sort
+    filtered.sort((a, b) => {
+      switch (sortBy) {
+        case 'price-low':
+          return a.price - b.price;
+        case 'price-high':
+          return b.price - a.price;
+        case 'rating':
+          return (b.rating || 0) - (a.rating || 0);
+        case 'featured':
+          return (b.featured ? 1 : 0) - (a.featured ? 1 : 0);
+        default:
+          return a.name.localeCompare(b.name);
+      }
+    });
+
+    setFilteredProducts(filtered);
+  }, [products, searchTerm, sortBy, priceRange, selectedCategory, selectedColors, selectedSizes]);
+
+  const subcategories = [
+    { value: 'all', label: 'All Categories' },
+    { value: 'business-suits', label: 'Business Suits' },
+    { value: 'cocktail-dresses', label: 'Cocktail Dresses' },
+    { value: 'evening-wear', label: 'Evening Wear' },
+    { value: 'blazers', label: 'Blazers' },
+    { value: 'skirt-suits', label: 'Skirt Suits' },
+    { value: 'accessories', label: 'Accessories' }
   ];
 
-  const categories = [
-    "Business Suits",
-    "Wedding Suits",
-    "Cocktail Suits", 
-    "Skirt Suits",
-    "Blazer Sets",
-    "Formal Dresses"
-  ];
+  const colors = ['Black', 'Navy', 'Gray', 'White', 'Red', 'Blue', 'Pink', 'Green'];
+  const sizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
+
+  const toggleColorFilter = (color: string) => {
+    setSelectedColors(prev => 
+      prev.includes(color) 
+        ? prev.filter(c => c !== color)
+        : [...prev, color]
+    );
+  };
+
+  const toggleSizeFilter = (size: string) => {
+    setSelectedSizes(prev => 
+      prev.includes(size) 
+        ? prev.filter(s => s !== size)
+        : [...prev, size]
+    );
+  };
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setSelectedCategory('all');
+    setSelectedColors([]);
+    setSelectedSizes([]);
+    setPriceRange([0, 1000]);
+  };
 
   return (
     <div className="min-h-screen bg-white">
@@ -90,164 +169,238 @@ const WomensCategory = () => {
           <nav className="text-sm text-gray-600">
             <Link to="/" className="hover:text-slate-900">Home</Link> 
             <span className="mx-2">/</span>
-            <span className="text-slate-900 font-medium">Women's Suits</span>
+            <span className="text-slate-900 font-medium">Women's Collection</span>
           </nav>
         </div>
       </div>
 
       <div className="container mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-slate-900 mb-4">Women's Collection</h1>
+          <p className="text-gray-600 max-w-2xl mx-auto">
+            Discover our elegant collection of women's formal wear, from sophisticated business suits 
+            to stunning evening dresses.
+          </p>
+        </div>
+
+        {/* Search and Controls */}
+        <div className="flex flex-col lg:flex-row gap-4 mb-8">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <Input
+              placeholder="Search products..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowFilters(!showFilters)}
+              className="flex items-center gap-2"
+            >
+              <Filter className="h-4 w-4" />
+              Filters
+            </Button>
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="name">Name A-Z</SelectItem>
+                <SelectItem value="price-low">Price: Low to High</SelectItem>
+                <SelectItem value="price-high">Price: High to Low</SelectItem>
+                <SelectItem value="rating">Highest Rated</SelectItem>
+                <SelectItem value="featured">Featured</SelectItem>
+              </SelectContent>
+            </Select>
+            <div className="flex border rounded-md">
+              <Button
+                variant={viewMode === 'grid' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('grid')}
+              >
+                <Grid className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === 'list' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('list')}
+              >
+                <List className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+
         <div className="flex gap-8">
-          {/* Sidebar - Similar to Men's category */}
-          <div className="w-64 flex-shrink-0">
-            <div className="bg-white rounded-lg border p-6 sticky top-24">
-              <div className="flex items-center gap-2 mb-6">
-                <Filter className="w-5 h-5 text-slate-900" />
-                <h3 className="font-semibold text-slate-900">Filters</h3>
+          {/* Filters Sidebar */}
+          {showFilters && (
+            <div className="w-64 space-y-6">
+              <div>
+                <h3 className="font-semibold text-slate-900 mb-3">Category</h3>
+                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {subcategories.map(cat => (
+                      <SelectItem key={cat.value} value={cat.value}>
+                        {cat.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
-              {/* Search */}
-              <div className="mb-6">
-                <Label className="text-sm font-medium text-slate-900 mb-2 block">Search</Label>
-                <div className="relative">
-                  <Input placeholder="Search products..." className="pl-8" />
-                  <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <div>
+                <h3 className="font-semibold text-slate-900 mb-3">Price Range</h3>
+                <div className="space-y-2">
+                  <Slider
+                    value={priceRange}
+                    onValueChange={setPriceRange}
+                    max={1000}
+                    min={0}
+                    step={10}
+                    className="w-full"
+                  />
+                  <div className="flex justify-between text-sm text-gray-600">
+                    <span>${priceRange[0]}</span>
+                    <span>${priceRange[1]}</span>
+                  </div>
                 </div>
               </div>
 
-              {/* Categories */}
-              <div className="mb-6">
-                <Label className="text-sm font-medium text-slate-900 mb-3 block">Category</Label>
-                <div className="space-y-2">
-                  {categories.map((category) => (
-                    <div key={category} className="flex items-center space-x-2">
-                      <Checkbox id={category} />
-                      <Label htmlFor={category} className="text-sm text-gray-600 cursor-pointer">
-                        {category}
-                      </Label>
-                    </div>
+              <div>
+                <h3 className="font-semibold text-slate-900 mb-3">Colors</h3>
+                <div className="grid grid-cols-4 gap-2">
+                  {colors.map(color => (
+                    <button
+                      key={color}
+                      onClick={() => toggleColorFilter(color)}
+                      className={`w-8 h-8 rounded-full border-2 ${
+                        selectedColors.includes(color) ? 'border-slate-900' : 'border-gray-300'
+                      }`}
+                      style={{ backgroundColor: color.toLowerCase() }}
+                      title={color}
+                    />
                   ))}
                 </div>
               </div>
 
-              <Button className="w-full bg-slate-900 hover:bg-slate-800">
-                Apply Filters
-              </Button>
-            </div>
-          </div>
-
-          {/* Main Content */}
-          <div className="flex-1">
-            {/* Header */}
-            <div className="flex justify-between items-center mb-8">
               <div>
-                <h1 className="text-3xl font-bold text-slate-900 mb-2">Women's Suits</h1>
-                <p className="text-gray-600">Sophisticated and elegant formal wear for the modern professional woman</p>
-                <p className="text-sm text-gray-500 mt-2">Showing 1-12 of 36 products</p>
-              </div>
-
-              <div className="flex items-center gap-4">
-                <Select value={sortBy} onValueChange={setSortBy}>
-                  <SelectTrigger className="w-48">
-                    <SelectValue placeholder="Sort by..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="popularity">Most Popular</SelectItem>
-                    <SelectItem value="price-low">Price: Low to High</SelectItem>
-                    <SelectItem value="price-high">Price: High to Low</SelectItem>
-                    <SelectItem value="newest">Newest First</SelectItem>
-                    <SelectItem value="rating">Highest Rated</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <div className="flex border rounded-lg overflow-hidden">
-                  <Button 
-                    variant={viewMode === "grid" ? "default" : "ghost"} 
-                    size="sm"
-                    onClick={() => setViewMode("grid")}
-                    className="rounded-none"
-                  >
-                    Grid
-                  </Button>
-                  <Button 
-                    variant={viewMode === "list" ? "default" : "ghost"} 
-                    size="sm"
-                    onClick={() => setViewMode("list")}
-                    className="rounded-none"
-                  >
-                    List
-                  </Button>
+                <h3 className="font-semibold text-slate-900 mb-3">Sizes</h3>
+                <div className="grid grid-cols-3 gap-2">
+                  {sizes.map(size => (
+                    <Button
+                      key={size}
+                      variant={selectedSizes.includes(size) ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => toggleSizeFilter(size)}
+                    >
+                      {size}
+                    </Button>
+                  ))}
                 </div>
               </div>
+
+              <Button 
+                variant="outline" 
+                onClick={clearFilters}
+                className="w-full"
+              >
+                Clear All Filters
+              </Button>
+            </div>
+          )}
+
+          {/* Products Grid */}
+          <div className="flex-1">
+            <div className="mb-4">
+              <p className="text-gray-600">
+                Showing {filteredProducts.length} of {products.length} products
+              </p>
             </div>
 
-            {/* Products Grid */}
-            <div className={`grid gap-6 ${viewMode === "grid" ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3" : "grid-cols-1"}`}>
-              {products.map((product) => (
-                <Card key={product.id} className="group hover:shadow-lg transition-shadow">
-                  <div className="relative overflow-hidden rounded-t-lg">
-                    <img 
-                      src={product.image} 
-                      alt={product.name}
-                      className="w-full h-80 object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                    <Badge className="absolute top-3 left-3 bg-yellow-600 text-white">
-                      {product.badge}
-                    </Badge>
-                  </div>
-                  <CardContent className="p-6">
-                    <div className="mb-2">
-                      <Badge variant="outline" className="text-xs text-gray-600">
-                        {product.category}
+            {loading ? (
+              <div className="text-center py-8">
+                <p className="text-gray-600">Loading products...</p>
+              </div>
+            ) : filteredProducts.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-gray-600">No products found matching your criteria.</p>
+              </div>
+            ) : (
+              <div className={`grid gap-6 ${
+                viewMode === 'grid' 
+                  ? 'md:grid-cols-2 lg:grid-cols-3' 
+                  : 'grid-cols-1'
+              }`}>
+                {filteredProducts.map((product) => (
+                  <Card key={product._id} className="group hover:shadow-lg transition-shadow">
+                    <div className="relative overflow-hidden rounded-t-lg">
+                      <img 
+                        src={product.images?.[0]?.url || '/placeholder-product.jpg'} 
+                        alt={product.name}
+                        className={`object-cover group-hover:scale-105 transition-transform duration-300 ${
+                          viewMode === 'grid' ? 'w-full h-64' : 'w-32 h-32'
+                        }`}
+                      />
+                      <Badge className="absolute top-3 left-3 bg-pink-600 text-white">
+                        {product.featured ? 'Featured' : 'New'}
                       </Badge>
                     </div>
-                    <h3 className="font-semibold text-slate-900 mb-2 group-hover:text-blue-600 transition-colors">
-                      {product.name}
-                    </h3>
-                    
-                    <div className="flex items-center gap-2 mb-3">
-                      <div className="flex items-center text-yellow-500">
-                        {[...Array(5)].map((_, i) => (
-                          <Star key={i} className={`w-4 h-4 ${i < Math.floor(product.rating) ? 'fill-current' : ''}`} />
-                        ))}
+                    <CardContent className="p-4">
+                      <h3 className="font-semibold text-slate-900 mb-2">{product.name}</h3>
+                      {product.shortDescription && (
+                        <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+                          {product.shortDescription}
+                        </p>
+                      )}
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <span className="text-xl font-bold text-slate-900">${product.price}</span>
+                          {product.comparePrice && product.comparePrice > product.price && (
+                            <span className="text-gray-500 line-through ml-2 text-sm">${product.comparePrice}</span>
+                          )}
+                        </div>
+                        <Badge className={`text-xs ${
+                          product.stockStatus === 'out-of-stock' ? 'bg-red-100 text-red-800' :
+                          product.stockStatus === 'low-stock' ? 'bg-orange-100 text-orange-800' :
+                          'bg-green-100 text-green-800'
+                        }`}>
+                          {product.stockStatus || 'in-stock'}
+                        </Badge>
                       </div>
-                      <span className="text-sm text-gray-600">({product.reviews} reviews)</span>
-                    </div>
-
-                    <div className="flex items-center justify-between mb-4">
-                      <div>
-                        <span className="text-2xl font-bold text-slate-900">${product.price}</span>
-                        <span className="text-gray-500 line-through ml-2">${product.originalPrice}</span>
-                      </div>
-                      <Badge variant="secondary" className="bg-green-100 text-green-800">
-                        Save ${product.originalPrice - product.price}
-                      </Badge>
-                    </div>
-
-                    <div className="flex gap-2">
-                      <Link to={`/product/${product.id}`} className="flex-1">
-                        <Button className="w-full bg-slate-900 hover:bg-slate-800">
+                      {product.rating && (
+                        <div className="flex items-center mb-3">
+                          <div className="flex">
+                            {[...Array(5)].map((_, i) => (
+                              <Star
+                                key={i}
+                                className={`h-4 w-4 ${
+                                  i < product.rating! ? 'text-yellow-400 fill-current' : 'text-gray-300'
+                                }`}
+                              />
+                            ))}
+                          </div>
+                          <span className="text-sm text-gray-600 ml-2">
+                            ({product.reviews || 0} reviews)
+                          </span>
+                        </div>
+                      )}
+                      <Link to={`/product/${product._id}`}>
+                        <Button className="w-full bg-slate-900 hover:bg-slate-800 text-sm">
                           View Details
                         </Button>
                       </Link>
-                      <Button variant="outline" className="px-4">
-                        ♡
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-
-            {/* Pagination */}
-            <div className="flex justify-center mt-12">
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm">Previous</Button>
-                <Button variant="default" size="sm" className="bg-slate-900">1</Button>
-                <Button variant="outline" size="sm">2</Button>
-                <Button variant="outline" size="sm">3</Button>
-                <Button variant="outline" size="sm">Next</Button>
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
@@ -258,3 +411,4 @@ const WomensCategory = () => {
 };
 
 export default WomensCategory;
+

@@ -13,17 +13,20 @@ import Footer from "@/components/Footer";
 import { useState } from "react";
 
 interface Product {
-  id: number;
+  _id: string;
   name: string;
   price: number;
-  originalPrice: number;
-  image: string;
-  rating: number;
-  reviews: number;
+  comparePrice?: number;
+  images?: { url: string; alt: string; isPrimary: boolean }[];
   category: string;
-  sizes: string[];
-  colors: string[];
-  badge: string;
+  subcategory?: string;
+  inventory?: { quantity: number };
+  stockStatus?: string;
+  featured?: boolean;
+  status: string;
+  createdAt: string;
+  shortDescription?: string;
+  tags?: string[];
 }
 
 interface MensPageLayoutProps {
@@ -226,15 +229,15 @@ const MensPageLayout = ({ title, description, products, categories, breadcrumbPa
             {/* Products Grid */}
             <div className={`grid gap-6 ${viewMode === "grid" ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3" : "grid-cols-1"}`}>
               {products.map((product) => (
-                <Card key={product.id} className="group hover:shadow-lg transition-shadow">
+                <Card key={product._id} className="group hover:shadow-lg transition-shadow">
                   <div className="relative overflow-hidden rounded-t-lg">
                     <img 
-                      src={product.image} 
+                      src={product.images?.[0]?.url || '/placeholder-product.jpg'} 
                       alt={product.name}
                       className="w-full h-80 object-cover group-hover:scale-105 transition-transform duration-300"
                     />
                     <Badge className="absolute top-3 left-3 bg-blue-600 text-white">
-                      {product.badge}
+                      {product.featured ? 'Featured' : product.subcategory || 'New'}
                     </Badge>
                     <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
                       <Button size="sm" variant="secondary" className="text-xs">
@@ -247,38 +250,51 @@ const MensPageLayout = ({ title, description, products, categories, breadcrumbPa
                       <Badge variant="outline" className="text-xs text-gray-600">
                         {product.category}
                       </Badge>
+                      {product.subcategory && (
+                        <Badge variant="outline" className="text-xs text-gray-600 ml-1">
+                          {product.subcategory}
+                        </Badge>
+                      )}
                     </div>
                     <h3 className="font-semibold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
                       {product.name}
                     </h3>
                     
-                    <div className="flex items-center gap-2 mb-3">
-                      <div className="flex items-center text-yellow-500">
-                        {[...Array(5)].map((_, i) => (
-                          <Star key={i} className={`w-4 h-4 ${i < Math.floor(product.rating) ? 'fill-current' : ''}`} />
-                        ))}
-                      </div>
-                      <span className="text-sm text-gray-600">({product.reviews} reviews)</span>
-                    </div>
+                    {product.shortDescription && (
+                      <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+                        {product.shortDescription}
+                      </p>
+                    )}
 
                     <div className="flex items-center justify-between mb-4">
                       <div>
                         <span className="text-2xl font-bold text-gray-900">${product.price}</span>
-                        <span className="text-gray-500 line-through ml-2">${product.originalPrice}</span>
+                        {product.comparePrice && product.comparePrice > product.price && (
+                          <>
+                            <span className="text-gray-500 line-through ml-2">${product.comparePrice}</span>
+                            <Badge variant="secondary" className="bg-green-100 text-green-800 ml-2">
+                              Save ${product.comparePrice - product.price}
+                            </Badge>
+                          </>
+                        )}
                       </div>
-                      <Badge variant="secondary" className="bg-green-100 text-green-800">
-                        Save ${product.originalPrice - product.price}
-                      </Badge>
                     </div>
 
                     <div className="flex items-center justify-between mb-4">
                       <div className="text-sm text-gray-600">
-                        <span>Sizes: {product.sizes.join(", ")}</span>
+                        <span>Stock: {product.inventory?.quantity || 0} available</span>
                       </div>
+                      <Badge className={`text-xs ${
+                        product.stockStatus === 'out-of-stock' ? 'bg-red-100 text-red-800' :
+                        product.stockStatus === 'low-stock' ? 'bg-orange-100 text-orange-800' :
+                        'bg-green-100 text-green-800'
+                      }`}>
+                        {product.stockStatus || 'in-stock'}
+                      </Badge>
                     </div>
 
                     <div className="flex gap-2">
-                      <Link to={`/product/${product.id}`} className="flex-1">
+                      <Link to={`/product/${product._id}`} className="flex-1">
                         <Button className="w-full bg-blue-600 hover:bg-blue-700">
                           View Details
                         </Button>

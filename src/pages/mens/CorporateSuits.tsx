@@ -1,61 +1,25 @@
-
+import { useEffect, useState } from "react";
 import MensPageLayout from "@/components/mens/MensPageLayout";
+import { productAPI } from "@/lib/api";
 
 const CorporateSuits = () => {
-  const products = [
-    {
-      id: 101,
-      name: "Executive Navy Business Suit",
-      price: 699,
-      originalPrice: 899,
-      image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&h=400&fit=crop",
-      rating: 4.9,
-      reviews: 156,
-      category: "Corporate",
-      sizes: ["38", "40", "42", "44", "46"],
-      colors: ["Navy", "Charcoal"],
-      badge: "Best Seller"
-    },
-    {
-      id: 102,
-      name: "Professional Charcoal Suit",
-      price: 649,
-      originalPrice: 849,
-      image: "https://images.unsplash.com/photo-1594736797933-d0dec65ba2ac?w=300&h=400&fit=crop",
-      rating: 4.8,
-      reviews: 123,
-      category: "Corporate",
-      sizes: ["36", "38", "40", "42", "44"],
-      colors: ["Charcoal", "Black"],
-      badge: "Premium"
-    },
-    {
-      id: 103,
-      name: "Modern Slim Fit Business Suit",
-      price: 599,
-      originalPrice: 799,
-      image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&h=400&fit=crop",
-      rating: 4.7,
-      reviews: 89,
-      category: "Corporate",
-      sizes: ["38", "40", "42", "44"],
-      colors: ["Navy", "Gray"],
-      badge: "New Arrival"
-    },
-    {
-      id: 104,
-      name: "Classic Black Corporate Suit",
-      price: 749,
-      originalPrice: 999,
-      image: "https://images.unsplash.com/photo-1594736797933-d0dec65ba2ac?w=300&h=400&fit=crop",
-      rating: 4.9,
-      reviews: 201,
-      category: "Corporate",
-      sizes: ["36", "38", "40", "42", "44", "46"],
-      colors: ["Black", "Charcoal"],
-      badge: "Executive"
-    }
-  ];
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      setLoading(true);
+      try {
+        const res = await productAPI.getAll({ category: 'mens', subcategory: 'corporate-suits', status: 'active' });
+        setProducts(res.data || []);
+      } catch (err) {
+        setProducts([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProducts();
+  }, []);
 
   const categories = [
     "Slim Fit",
@@ -65,6 +29,10 @@ const CorporateSuits = () => {
     "Two-Piece",
     "Three-Piece"
   ];
+
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center text-xl text-gray-600">Loading products...</div>;
+  }
 
   return (
     <MensPageLayout

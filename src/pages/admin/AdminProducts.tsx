@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -19,62 +19,53 @@ import {
 } from "lucide-react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import ProductForm from "@/components/admin/ProductForm";
+import { productAPI } from "@/lib/api";
 
 const AdminProducts = () => {
   const [activeTab, setActiveTab] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [showProductForm, setShowProductForm] = useState(false);
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedCategory, setSelectedCategory] = useState("");
+  const [selectedStatus, setSelectedStatus] = useState("");
+  const [sortBy, setSortBy] = useState("");
 
-  const products = [
-    {
-      id: 1,
-      name: "Executive Navy Business Suit",
-      sku: "SW-ENS-001",
-      category: "Men's Suits",
-      price: 599,
-      stock: 24,
-      status: "active",
-      image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop",
-      sales: 89,
-      created: "2024-01-15"
-    },
-    {
-      id: 2,
-      name: "Classic Charcoal Three-Piece",
-      sku: "SW-CCT-002", 
-      category: "Men's Suits",
-      price: 899,
-      stock: 12,
-      status: "active",
-      image: "https://images.unsplash.com/photo-1594736797933-d0dec65ba2ac?w=100&h=100&fit=crop",
-      sales: 67,
-      created: "2024-01-10"
-    },
-    {
-      id: 3,
-      name: "Executive Business Pantsuit",
-      sku: "SW-EBP-003",
-      category: "Women's Suits", 
-      price: 649,
-      stock: 8,
-      status: "low_stock",
-      image: "https://images.unsplash.com/photo-1594736797933-d0dec65ba2ac?w=100&h=100&fit=crop",
-      sales: 45,
-      created: "2024-01-08"
-    },
-    {
-      id: 4,
-      name: "Boys' First Communion Suit",
-      sku: "SW-BFC-004",
-      category: "Children's Suits",
-      price: 199,
-      stock: 0,
-      status: "out_of_stock",
-      image: "https://images.unsplash.com/photo-1503944583220-79d8926ad5e2?w=100&h=100&fit=crop",
-      sales: 23,
-      created: "2024-01-05"
+  useEffect(() => {
+    fetchProducts();
+  }, [searchTerm, selectedCategory, selectedStatus, sortBy]);
+
+  const fetchProducts = async () => {
+    try {
+      setLoading(true);
+      const params: any = {};
+      
+      if (searchTerm) params.search = searchTerm;
+      if (selectedCategory) params.category = selectedCategory;
+      if (selectedStatus) params.status = selectedStatus;
+      if (sortBy) {
+        params.sortBy = sortBy;
+        params.sortOrder = 'desc';
+      }
+
+      const response = await productAPI.getAll(params);
+      setProducts(response.data || []);
+    } catch (error) {
+      console.error('Error fetching products:', error);
+      setProducts([]);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+  const handleDeleteProduct = async (productId: string) => {
+    try {
+      await productAPI.delete(productId);
+      fetchProducts(); // Refresh the list
+    } catch (error) {
+      console.error('Error deleting product:', error);
+    }
+  };
 
   const getStatusBadge = (status: string, stock: number) => {
     if (status === "out_of_stock" || stock === 0) {
@@ -192,50 +183,76 @@ const AdminProducts = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {products.map((product) => (
-                        <tr key={product.id} className="border-b hover:bg-gray-50">
-                          <td className="py-4 px-2">
-                            <div className="flex items-center space-x-3">
-                              <img 
-                                src={product.image} 
-                                alt={product.name}
-                                className="w-12 h-12 rounded-lg object-cover"
-                              />
-                              <div>
-                                <p className="font-medium text-slate-900">{product.name}</p>
-                                <p className="text-sm text-gray-600">Created: {product.created}</p>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="py-4 px-2 font-mono text-sm">{product.sku}</td>
-                          <td className="py-4 px-2">
-                            <Badge variant="outline">{product.category}</Badge>
-                          </td>
-                          <td className="py-4 px-2 font-medium">${product.price}</td>
-                          <td className="py-4 px-2">
-                            <span className={product.stock < 10 ? 'text-orange-600 font-medium' : ''}>
-                              {product.stock}
-                            </span>
-                          </td>
-                          <td className="py-4 px-2">
-                            {getStatusBadge(product.status, product.stock)}
-                          </td>
-                          <td className="py-4 px-2">{product.sales} sold</td>
-                          <td className="py-4 px-2">
-                            <div className="flex items-center space-x-2">
-                              <Button size="sm" variant="ghost">
-                                <Eye className="w-4 h-4" />
-                              </Button>
-                              <Button size="sm" variant="ghost">
-                                <Edit className="w-4 h-4" />
-                              </Button>
-                              <Button size="sm" variant="ghost" className="text-red-600 hover:text-red-700">
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </div>
+                      {loading ? (
+                        <tr>
+                          <td colSpan="8" className="text-center py-8">
+                            Loading products...
                           </td>
                         </tr>
-                      ))}
+                      ) : products.length === 0 ? (
+                        <tr>
+                          <td colSpan="8" className="text-center py-8">
+                            No products found
+                          </td>
+                        </tr>
+                      ) : (
+                        products.map((product) => (
+                          <tr key={product._id} className="border-b hover:bg-gray-50">
+                            <td className="py-4 px-2">
+                              <div className="flex items-center space-x-3">
+                                <img 
+                                  src={product.images?.[0]?.url || '/placeholder-product.jpg'} 
+                                  alt={product.name}
+                                  className="w-12 h-12 rounded-lg object-cover"
+                                />
+                                <div>
+                                  <p className="font-medium text-slate-900">{product.name}</p>
+                                  <p className="text-sm text-gray-600">Created: {new Date(product.createdAt).toLocaleDateString()}</p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-4 px-2 font-mono text-sm">{product.sku || 'N/A'}</td>
+                            <td className="py-4 px-2">
+                              <Badge variant="outline">{product.category}</Badge>
+                              {product.subcategory && (
+                                <Badge variant="outline" className="ml-1 text-xs">{product.subcategory}</Badge>
+                              )}
+                            </td>
+                            <td className="py-4 px-2 font-medium">${product.price}</td>
+                            <td className="py-4 px-2">
+                              <span className={product.inventory?.quantity < 10 ? 'text-orange-600 font-medium' : ''}>
+                                {product.inventory?.quantity || 0}
+                              </span>
+                            </td>
+                            <td className="py-4 px-2">
+                              <Badge className={`${product.stockStatus === 'out-of-stock' ? 'bg-red-100 text-red-800' : 
+                                product.stockStatus === 'low-stock' ? 'bg-orange-100 text-orange-800' : 
+                                'bg-green-100 text-green-800'}`}>
+                                {product.stockStatus}
+                              </Badge>
+                            </td>
+                            <td className="py-4 px-2">N/A</td>
+                            <td className="py-4 px-2">
+                              <div className="flex items-center space-x-2">
+                                <Button size="sm" variant="ghost">
+                                  <Eye className="w-4 h-4" />
+                                </Button>
+                                <Button size="sm" variant="ghost">
+                                  <Edit className="w-4 h-4" />
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="ghost" 
+                                  className="text-red-600 hover:text-red-700"
+                                  onClick={() => handleDeleteProduct(product._id)}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -300,6 +317,7 @@ const AdminProducts = () => {
       <ProductForm 
         open={showProductForm} 
         onOpenChange={setShowProductForm} 
+        onProductCreated={fetchProducts}
       />
     </AdminLayout>
   );

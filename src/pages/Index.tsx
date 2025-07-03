@@ -1,4 +1,5 @@
 
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -7,8 +8,12 @@ import { Star, Shield, Truck, RefreshCw, User } from "lucide-react";
 import { Link } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import { productAPI } from "@/lib/api";
 
 const Index = () => {
+  const [featuredProducts, setFeaturedProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+
   const categories = [
     {
       title: "Men's Suits",
@@ -33,35 +38,23 @@ const Index = () => {
     }
   ];
 
-  const featuredProducts = [
-    {
-      id: 1,
-      name: "Executive Navy Suit",
-      price: 599,
-      originalPrice: 799,
-      image: "/lovable-uploads/4ba80d39-2697-438c-9ed7-86f8311f2935.png",
-      rating: 4.8,
-      badge: "Best Seller"
-    },
-    {
-      id: 2,
-      name: "Classic Charcoal Blazer",
-      price: 349,
-      originalPrice: 449,
-      image: "/lovable-uploads/301108ce-641b-41ae-9c86-23ef3a068aac.png",
-      rating: 4.9,
-      badge: "New Arrival"
-    },
-    {
-      id: 3,
-      name: "Wedding Three-Piece",
-      price: 899,
-      originalPrice: 1199,
-      image: "/lovable-uploads/0a33b8bd-fc15-4411-ab2a-42148e84048b.png",
-      rating: 5.0,
-      badge: "Premium"
-    }
-  ];
+  useEffect(() => {
+    const fetchFeaturedProducts = async () => {
+      try {
+        setLoading(true);
+        const response = await productAPI.getFeatured();
+        setFeaturedProducts(response.data || []);
+      } catch (error) {
+        console.error('Error fetching featured products:', error);
+        // Fallback to empty array if API fails
+        setFeaturedProducts([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchFeaturedProducts();
+  }, []);
 
   const testimonials = [
     {
@@ -108,9 +101,6 @@ const Index = () => {
               <Button size="lg" className="bg-yellow-600 hover:bg-yellow-700 text-white">
                 Shop Collection
               </Button>
-              <Button size="lg" variant="outline" className="border-white text-white hover:bg-white hover:text-slate-900">
-                Custom Tailoring
-              </Button>
             </div>
           </div>
         </div>
@@ -128,11 +118,11 @@ const Index = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
           {categories.map((category, index) => (
             <Card key={index} className="group hover:shadow-xl transition-all duration-300 border-0 shadow-lg">
-              <div className="relative overflow-hidden rounded-t-lg">
+              <div className="relative overflow-hidden rounded-t-lg aspect-[4/3]">
                 <img 
                   src={category.image} 
                   alt={category.title}
-                  className="w-full h-48 sm:h-64 object-cover group-hover:scale-105 transition-transform duration-300"
+                  className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                   <div className="absolute bottom-4 left-4 text-white">
@@ -168,50 +158,60 @@ const Index = () => {
             <p className="text-gray-600 text-sm sm:text-base">Handpicked bestsellers from our premium collection</p>
           </div>
           
-          <Carousel className="max-w-5xl mx-auto">
-            <CarouselContent>
-              {featuredProducts.map((product) => (
-                <CarouselItem key={product.id} className="sm:basis-1/2 lg:basis-1/3">
-                  <Card className="group hover:shadow-lg transition-shadow">
-                    <div className="relative overflow-hidden rounded-t-lg">
-                      <img 
-                        src={product.image} 
-                        alt={product.name}
-                        className="w-full h-64 sm:h-80 object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                      <Badge className="absolute top-3 left-3 bg-yellow-600 text-white text-xs">
-                        {product.badge}
-                      </Badge>
-                    </div>
-                    <CardContent className="p-4 sm:p-6">
-                      <h3 className="font-semibold text-slate-900 mb-2 text-sm sm:text-base">{product.name}</h3>
-                      <div className="flex items-center gap-2 mb-3">
-                        <div className="flex items-center text-yellow-500">
-                          {[...Array(5)].map((_, i) => (
-                            <Star key={i} className={`w-3 h-3 sm:w-4 sm:h-4 ${i < Math.floor(product.rating) ? 'fill-current' : ''}`} />
-                          ))}
-                        </div>
-                        <span className="text-xs sm:text-sm text-gray-600">({product.rating})</span>
+          {loading ? (
+            <div className="text-center py-12">
+              <p className="text-gray-600">Loading featured products...</p>
+            </div>
+          ) : featuredProducts.length > 0 ? (
+            <Carousel className="max-w-5xl mx-auto">
+              <CarouselContent>
+                {featuredProducts.map((product) => (
+                  <CarouselItem key={product._id} className="sm:basis-1/2 lg:basis-1/3">
+                    <Card className="group hover:shadow-lg transition-shadow">
+                      <div className="relative overflow-hidden rounded-t-lg aspect-[3/4]">
+                        <img 
+                          src={product.images?.[0]?.url || '/placeholder-product.jpg'} 
+                          alt={product.name}
+                          className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
+                        />
+                        <Badge className="absolute top-3 left-3 bg-yellow-600 text-white text-xs">
+                          Featured
+                        </Badge>
+                        {product.discountPercentage > 0 && (
+                          <Badge className="absolute top-3 right-3 bg-red-600 text-white text-xs">
+                            -{product.discountPercentage}%
+                          </Badge>
+                        )}
                       </div>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <span className="text-lg sm:text-2xl font-bold text-slate-900">${product.price}</span>
-                          <span className="text-gray-500 line-through ml-2 text-sm">${product.originalPrice}</span>
+                      <CardContent className="p-4 sm:p-6">
+                        <h3 className="font-semibold text-slate-900 mb-2 text-sm sm:text-base">{product.name}</h3>
+                        <p className="text-gray-600 text-xs sm:text-sm mb-3 line-clamp-2">{product.shortDescription}</p>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="text-lg sm:text-2xl font-bold text-slate-900">${product.price}</span>
+                            {product.comparePrice && product.comparePrice > product.price && (
+                              <span className="text-gray-500 line-through ml-2 text-sm">${product.comparePrice}</span>
+                            )}
+                          </div>
+                          <Link to={`/product/${product._id}`}>
+                            <Button size="sm" className="bg-slate-900 hover:bg-slate-800 text-xs sm:text-sm">
+                              View Details
+                            </Button>
+                          </Link>
                         </div>
-                        <Link to={`/product/${product.id}`}>
-                          <Button size="sm" className="bg-slate-900 hover:bg-slate-800 text-xs sm:text-sm">
-                            View Details
-                          </Button>
-                        </Link>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </CarouselItem>
-              ))}
-            </CarouselContent>
-            <CarouselPrevious className="hidden sm:flex" />
-            <CarouselNext className="hidden sm:flex" />
-          </Carousel>
+                      </CardContent>
+                    </Card>
+                  </CarouselItem>
+                ))}
+              </CarouselContent>
+              <CarouselPrevious className="hidden sm:flex" />
+              <CarouselNext className="hidden sm:flex" />
+            </Carousel>
+          ) : (
+            <div className="text-center py-12">
+              <p className="text-gray-600">No featured products available at the moment.</p>
+            </div>
+          )}
         </div>
       </section>
 

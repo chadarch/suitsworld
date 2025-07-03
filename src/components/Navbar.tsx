@@ -1,6 +1,5 @@
-
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { 
@@ -14,10 +13,14 @@ import {
 import { Input } from "@/components/ui/input";
 import { Search, User, ShoppingBag, Menu, X } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { useAuth } from "./AuthProvider";
 
 const Navbar = () => {
   const [cartItems] = useState(3);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   return (
     <nav className="bg-white shadow-sm border-b sticky top-0 z-50">
@@ -160,19 +163,19 @@ const Navbar = () => {
                 </NavigationMenuItem>
 
                 <NavigationMenuItem>
-                  <Link to="/childrens">
-                    <NavigationMenuLink className="text-slate-900 hover:text-slate-700 px-4 py-2">
+                  <NavigationMenuLink asChild>
+                    <Link to="/childrens" className="text-slate-900 hover:text-slate-700 px-4 py-2">
                       Children's
-                    </NavigationMenuLink>
-                  </Link>
+                    </Link>
+                  </NavigationMenuLink>
                 </NavigationMenuItem>
 
                 <NavigationMenuItem>
-                  <Link to="/sale">
-                    <NavigationMenuLink className="text-slate-900 hover:text-slate-700 px-4 py-2">
+                  <NavigationMenuLink asChild>
+                    <Link to="/sale" className="text-slate-900 hover:text-slate-700 px-4 py-2">
                       Sale
-                    </NavigationMenuLink>
-                  </Link>
+                    </Link>
+                  </NavigationMenuLink>
                 </NavigationMenuItem>
               </NavigationMenuList>
             </NavigationMenu>
@@ -189,10 +192,36 @@ const Navbar = () => {
             </div>
 
             {/* User Actions */}
-            <div className="flex items-center space-x-2">
-              <Button variant="ghost" size="sm" className="text-slate-900">
-                <User className="w-5 h-5" />
-              </Button>
+            <div className="flex items-center space-x-2 relative">
+              {user ? (
+                <div className="relative">
+                  <Button variant="ghost" size="sm" className="text-slate-900 flex items-center gap-2" onClick={() => setDropdownOpen((v) => !v)}>
+                    <User className="w-5 h-5" />
+                    <span className="hidden md:inline">{user.username}</span>
+                  </Button>
+                  {dropdownOpen && (
+                    <div className="absolute right-0 mt-2 w-48 bg-white border rounded shadow-lg z-50">
+                      <div className="px-4 py-2 border-b text-sm text-slate-700">Signed in as <b>{user.username}</b></div>
+                      <div className="px-4 py-2 text-sm text-slate-700">{user.email}</div>
+                      <button
+                        className="w-full text-left px-4 py-2 text-red-600 hover:bg-red-50 border-t text-sm"
+                        onClick={() => { logout(); setDropdownOpen(false); navigate('/'); }}
+                      >
+                        Log out
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <Button asChild variant="ghost" size="sm" className="text-slate-900">
+                    <Link to="/signin">Sign In</Link>
+                  </Button>
+                  <Button asChild variant="ghost" size="sm" className="text-slate-900">
+                    <Link to="/signup">Sign Up</Link>
+                  </Button>
+                </>
+              )}
               <Button variant="ghost" size="sm" className="text-slate-900 relative">
                 <ShoppingBag className="w-5 h-5" />
                 {cartItems > 0 && (
@@ -281,10 +310,27 @@ const Navbar = () => {
 
                   {/* User Account */}
                   <div className="border-t pt-4">
-                    <Button variant="ghost" className="w-full justify-start text-slate-900">
-                      <User className="w-5 h-5 mr-2" />
-                      My Account
-                    </Button>
+                    {user ? (
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2 text-slate-900 font-semibold">
+                          <User className="w-5 h-5" />
+                          {user.username}
+                        </div>
+                        <div className="text-xs text-gray-500 mb-2">{user.email}</div>
+                        <Button variant="ghost" className="w-full justify-start text-red-600" onClick={() => { logout(); setIsMobileMenuOpen(false); navigate('/'); }}>
+                          Log out
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-2">
+                        <Button asChild variant="ghost" className="w-full justify-start text-slate-900">
+                          <Link to="/signin" onClick={() => setIsMobileMenuOpen(false)}>Sign In</Link>
+                        </Button>
+                        <Button asChild variant="ghost" className="w-full justify-start text-slate-900">
+                          <Link to="/signup" onClick={() => setIsMobileMenuOpen(false)}>Sign Up</Link>
+                        </Button>
+                      </div>
+                    )}
                   </div>
 
                   {/* Admin Portal Link */}

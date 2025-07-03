@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Star, Heart, Share2, Truck, Shield, RefreshCw } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import { productAPI } from "@/lib/api";
 
 const ProductDetail = () => {
   const { id } = useParams();
@@ -16,64 +17,87 @@ const ProductDetail = () => {
   const [selectedColor, setSelectedColor] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [selectedImage, setSelectedImage] = useState(0);
+  const [product, setProduct] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [relatedProducts, setRelatedProducts] = useState([]);
 
-  // Mock product data
-  const product = {
-    id: 1,
-    name: "Executive Navy Business Suit",
-    price: 599,
-    originalPrice: 799,
-    rating: 4.8,
-    reviews: 124,
-    category: "Corporate Suits",
-    sku: "SW-ENS-001",
-    description: "Crafted from premium wool blend fabric, this executive navy business suit embodies sophistication and professionalism. Perfect for boardroom meetings, important presentations, and formal occasions.",
-    features: [
-      "100% Premium Wool Blend",
-      "Slim Fit Design",
-      "Half-Canvas Construction", 
-      "Premium Italian Buttons",
-      "Dry Clean Only"
-    ],
-    sizes: ["36", "38", "40", "42", "44", "46", "48"],
-    colors: [
-      { name: "Navy", value: "#1a365d" },
-      { name: "Charcoal", value: "#2d3748" }
-    ],
-    images: [
-      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600&h=800&fit=crop",
-      "https://images.unsplash.com/photo-1594736797933-d0dec65ba2ac?w=600&h=800&fit=crop",
-      "https://images.unsplash.com/photo-1503944583220-79d8926ad5e2?w=600&h=800&fit=crop",
-      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600&h=800&fit=crop"
-    ],
-    inStock: true,
-    badge: "Best Seller"
-  };
+  useEffect(() => {
+    const fetchProduct = async () => {
+      if (!id) return;
+      
+      setLoading(true);
+      try {
+        const response = await productAPI.getById(id);
+        if (response.success) {
+          setProduct(response.data);
+          // Fetch related products from the same category
+          try {
+            const relatedResponse = await productAPI.getByCategory(response.data.category);
+            const related = relatedResponse.data?.filter(p => p._id !== id).slice(0, 3) || [];
+            setRelatedProducts(related);
+          } catch (relatedError) {
+            console.error('Error fetching related products:', relatedError);
+          }
+        } else {
+          setError('Product not found');
+        }
+      } catch (err) {
+        console.error('Error fetching product:', err);
+        setError('Failed to load product');
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const relatedProducts = [
-    {
-      id: 2,
-      name: "Classic Charcoal Blazer",
-      price: 349,
-      image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&h=400&fit=crop",
-      rating: 4.6
-    },
-    {
-      id: 3,
-      name: "Premium Dress Shirt",
-      price: 89,
-      image: "https://images.unsplash.com/photo-1594736797933-d0dec65ba2ac?w=300&h=400&fit=crop",
-      rating: 4.7
-    },
-    {
-      id: 4,
-      name: "Silk Tie Collection",
-      price: 45,
-      image: "https://images.unsplash.com/photo-1503944583220-79d8926ad5e2?w=300&h=400&fit=crop",
-      rating: 4.9
-    }
+    fetchProduct();
+  }, [id]);
+
+  // Default values for missing product data
+  const defaultSizes = ["36", "38", "40", "42", "44", "46", "48"];
+  const defaultColors = [
+    { name: "Navy", value: "#1a365d" },
+    { name: "Charcoal", value: "#2d3748" },
+    { name: "Black", value: "#000000" },
+    { name: "Gray", value: "#718096" }
   ];
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white">
+        <Navbar />
+        <div className="container mx-auto px-4 py-16">
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-900 mx-auto mb-4"></div>
+              <p className="text-gray-600">Loading product details...</p>
+            </div>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (error || !product) {
+    return (
+      <div className="min-h-screen bg-white">
+        <Navbar />
+        <div className="container mx-auto px-4 py-16">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-slate-900 mb-4">Product Not Found</h1>
+            <p className="text-gray-600 mb-8">{error || 'The product you\'re looking for doesn\'t exist.'}</p>
+            <Link to="/mens">
+              <Button className="bg-slate-900 hover:bg-slate-800">Browse Products</Button>
+            </Link>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  // Static reviews for demo (in a real app, these would come from the API)
   const reviews = [
     {
       id: 1,
@@ -124,7 +148,7 @@ const ProductDetail = () => {
           <div className="space-y-4">
             <div className="relative overflow-hidden rounded-lg bg-gray-100">
               <img 
-                src={product.images[selectedImage]}
+                src={product.images?.[selectedImage]?.url || product.images?.[0]?.url || '/placeholder-product.jpg'}
                 alt={product.name}
                 className="w-full h-[600px] object-cover"
               />
@@ -135,23 +159,25 @@ const ProductDetail = () => {
               )}
             </div>
             
-            <div className="grid grid-cols-4 gap-4">
-              {product.images.map((image, index) => (
-                <button
-                  key={index}
-                  onClick={() => setSelectedImage(index)}
-                  className={`relative rounded-lg overflow-hidden border-2 transition-colors ${
-                    selectedImage === index ? 'border-slate-900' : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <img 
-                    src={image}
-                    alt={`${product.name} view ${index + 1}`}
-                    className="w-full h-24 object-cover"
-                  />
-                </button>
-              ))}
-            </div>
+            {product.images && product.images.length > 1 && (
+              <div className="grid grid-cols-4 gap-4">
+                {product.images.map((image, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setSelectedImage(index)}
+                    className={`relative rounded-lg overflow-hidden border-2 transition-colors ${
+                      selectedImage === index ? 'border-slate-900' : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <img 
+                      src={image.url || image}
+                      alt={`${product.name} view ${index + 1}`}
+                      className="w-full h-24 object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Product Info */}
@@ -164,19 +190,23 @@ const ProductDetail = () => {
               <div className="flex items-center gap-4 mb-4">
                 <div className="flex items-center text-yellow-500">
                   {[...Array(5)].map((_, i) => (
-                    <Star key={i} className={`w-5 h-5 ${i < Math.floor(product.rating) ? 'fill-current' : ''}`} />
+                    <Star key={i} className={`w-5 h-5 ${i < Math.floor(4.5) ? 'fill-current' : ''}`} />
                   ))}
                 </div>
-                <span className="text-gray-600">({product.reviews} reviews)</span>
-                <span className="text-sm text-gray-500">SKU: {product.sku}</span>
+                <span className="text-gray-600">({reviews.length} reviews)</span>
+                {product.sku && <span className="text-sm text-gray-500">SKU: {product.sku}</span>}
               </div>
               
               <div className="flex items-center gap-4 mb-6">
                 <span className="text-3xl font-bold text-slate-900">${product.price}</span>
-                <span className="text-xl text-gray-500 line-through">${product.originalPrice}</span>
-                <Badge className="bg-green-100 text-green-800">
-                  Save ${product.originalPrice - product.price}
-                </Badge>
+                {product.comparePrice && product.comparePrice > product.price && (
+                  <>
+                    <span className="text-xl text-gray-500 line-through">${product.comparePrice}</span>
+                    <Badge className="bg-green-100 text-green-800">
+                      Save ${product.comparePrice - product.price}
+                    </Badge>
+                  </>
+                )}
               </div>
 
               <p className="text-gray-600 leading-relaxed mb-6">
@@ -192,7 +222,7 @@ const ProductDetail = () => {
                   Size {selectedSize && <span className="text-gray-500">({selectedSize})</span>}
                 </label>
                 <div className="grid grid-cols-7 gap-2">
-                  {product.sizes.map((size) => (
+                  {(product.sizes || defaultSizes).map((size) => (
                     <Button
                       key={size}
                       variant={selectedSize === size ? "default" : "outline"}
@@ -212,7 +242,7 @@ const ProductDetail = () => {
                   Color {selectedColor && <span className="text-gray-500">({selectedColor})</span>}
                 </label>
                 <div className="flex gap-3">
-                  {product.colors.map((color) => (
+                  {(product.colors || defaultColors).map((color) => (
                     <button
                       key={color.name}
                       onClick={() => setSelectedColor(color.name)}
@@ -297,7 +327,7 @@ const ProductDetail = () => {
               <TabsTrigger value="description">Description</TabsTrigger>
               <TabsTrigger value="specifications">Specifications</TabsTrigger>
               <TabsTrigger value="size-guide">Size Guide</TabsTrigger>
-              <TabsTrigger value="reviews">Reviews ({product.reviews})</TabsTrigger>
+              <TabsTrigger value="reviews">Reviews ({reviews.length})</TabsTrigger>
             </TabsList>
 
             <TabsContent value="description" className="mt-8">
@@ -311,12 +341,16 @@ const ProductDetail = () => {
                     who demands both style and functionality. The premium construction ensures durability 
                     while maintaining an elegant silhouette that commands respect in any setting.
                   </p>
-                  <h4 className="font-semibold text-slate-900 mb-3">Key Features:</h4>
-                  <ul className="space-y-2">
-                    {product.features.map((feature, index) => (
-                      <li key={index} className="text-gray-600">• {feature}</li>
-                    ))}
-                  </ul>
+                  {product.features && product.features.length > 0 && (
+                    <>
+                      <h4 className="font-semibold text-slate-900 mb-3">Key Features:</h4>
+                      <ul className="space-y-2">
+                        {product.features.map((feature, index) => (
+                          <li key={index} className="text-gray-600">• {feature}</li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -451,35 +485,39 @@ const ProductDetail = () => {
         </div>
 
         {/* Related Products */}
-        <div className="mt-16">
-          <h2 className="text-2xl font-bold text-slate-900 mb-8">Complete the Look</h2>
-          <div className="grid md:grid-cols-3 gap-6">
-            {relatedProducts.map((product) => (
-              <Card key={product.id} className="group hover:shadow-lg transition-shadow">
-                <div className="relative overflow-hidden rounded-t-lg">
-                  <img 
-                    src={product.image} 
-                    alt={product.name}
-                    className="w-full h-64 object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                </div>
-                <CardContent className="p-4">
-                  <h3 className="font-medium text-slate-900 mb-2">{product.name}</h3>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xl font-bold text-slate-900">${product.price}</span>
-                    <div className="flex items-center text-yellow-500">
-                      <Star className="w-4 h-4 fill-current" />
-                      <span className="text-sm text-gray-600 ml-1">{product.rating}</span>
-                    </div>
+        {relatedProducts.length > 0 && (
+          <div className="mt-16">
+            <h2 className="text-2xl font-bold text-slate-900 mb-8">Complete the Look</h2>
+            <div className="grid md:grid-cols-3 gap-6">
+              {relatedProducts.map((relatedProduct) => (
+                <Card key={relatedProduct._id} className="group hover:shadow-lg transition-shadow">
+                  <div className="relative overflow-hidden rounded-t-lg">
+                    <img 
+                      src={relatedProduct.images?.[0]?.url || '/placeholder-product.jpg'} 
+                      alt={relatedProduct.name}
+                      className="w-full h-64 object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
                   </div>
-                  <Button size="sm" className="w-full mt-3 bg-slate-900 hover:bg-slate-800">
-                    Add to Cart
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
+                  <CardContent className="p-4">
+                    <h3 className="font-medium text-slate-900 mb-2">{relatedProduct.name}</h3>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xl font-bold text-slate-900">${relatedProduct.price}</span>
+                      <div className="flex items-center text-yellow-500">
+                        <Star className="w-4 h-4 fill-current" />
+                        <span className="text-sm text-gray-600 ml-1">4.5</span>
+                      </div>
+                    </div>
+                    <Link to={`/product/${relatedProduct._id}`}>
+                      <Button size="sm" className="w-full mt-3 bg-slate-900 hover:bg-slate-800">
+                        View Details
+                      </Button>
+                    </Link>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       <Footer />
