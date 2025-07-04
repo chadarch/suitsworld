@@ -16,6 +16,22 @@
   },
   "rewrites": [
     {
+      "source": "/api/users/login",
+      "destination": "/api/users?action=login"
+    },
+    {
+      "source": "/api/users/me",
+      "destination": "/api/users?action=me"
+    },
+    {
+      "source": "/api/users/(.*)",
+      "destination": "/api/users?id=$1"
+    },
+    {
+      "source": "/api/products/(.*)",
+      "destination": "/api/products?id=$1"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
