@@ -9,7 +9,7 @@ const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:3000'],
+  origin: ['http://localhost:5173', 'http://localhost:3000', 'https://your-vercel-domain.vercel.app'],
   credentials: true,
   optionsSuccessStatus: 200
 }));
@@ -40,13 +40,13 @@ app.get('/api/health', (req, res) => {
 });
 
 // Serve static files from uploads directory
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-console.log('Static files served from:', path.join(__dirname, 'uploads'));
+app.use('/uploads', express.static(path.join(__dirname, '../server/uploads')));
+console.log('Static files served from:', path.join(__dirname, '../server/uploads'));
 
 // Test route to check uploads directory
 app.get('/api/test-uploads', (req, res) => {
   const fs = require('fs');
-  const uploadsPath = path.join(__dirname, 'uploads');
+  const uploadsPath = path.join(__dirname, '../server/uploads');
   try {
     const files = fs.readdirSync(uploadsPath);
     res.json({
@@ -64,9 +64,9 @@ app.get('/api/test-uploads', (req, res) => {
 });
 
 // Import routes
-app.use('/api/users', require('./routes/users'));
-app.use('/api/products', require('./routes/products'));
-app.use('/api/upload', require('./routes/upload'));
+app.use('/api/users', require('../server/routes/users'));
+app.use('/api/products', require('../server/routes/products'));
+app.use('/api/upload', require('../server/routes/upload'));
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -79,10 +79,4 @@ app.use('*', (req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-  console.log(`Health check: http://localhost:${PORT}/api/health`);
-});
-
-module.exports = app;
+module.exports = app; 
