@@ -40,11 +40,22 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin: [
-    'http://localhost:5173',
-    'https://suits-world-design-kit.vercel.app',
-    'https://suitsworld-kf8bf3wug-chads-projects-784b9423.vercel.app'
-  ],
+  origin: (origin, callback) => {
+    // Allow localhost for development
+    if (!origin || origin.startsWith('http://localhost:5173')) {
+      return callback(null, true);
+    }
+    // Allow all Vercel preview and production URLs for your project
+    if (/^https:\/\/suitsworld-.*-chads-projects-784b9423\.vercel\.app$/.test(origin)) {
+      return callback(null, true);
+    }
+    // Allow your old domain if needed
+    if (origin === 'https://suits-world-design-kit.vercel.app') {
+      return callback(null, true);
+    }
+    // Otherwise, block
+    return callback(new Error('Not allowed by CORS'));
+  },
   credentials: true
 }));
 app.use(express.json({ limit: '10mb' }));
