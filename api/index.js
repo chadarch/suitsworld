@@ -40,7 +40,11 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:5173', 'https://suits-world-design-kit.vercel.app'],
+  origin: [
+    'http://localhost:5173',
+    'https://suits-world-design-kit.vercel.app',
+    'https://suitsworld-kf8bf3wug-chads-projects-784b9423.vercel.app'
+  ],
   credentials: true
 }));
 app.use(express.json({ limit: '10mb' }));
