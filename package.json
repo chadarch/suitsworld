@@ -8,8 +8,8 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
-    "server": "node server/server.js",
-    "server:dev": "nodemon server/server.js",
+    "server": "node api/server.js",
+    "server:dev": "nodemon api/server.js",
     "dev:full": "concurrently \"npm run server:dev\" \"npm run dev\""
   },
   "dependencies": {
