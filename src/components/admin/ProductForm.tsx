@@ -80,7 +80,7 @@ const ProductForm = ({ open, onOpenChange, onProductCreated }: ProductFormProps)
         });
 
         try {
-          const uploadResponse = await fetch('http://localhost:5000/api/upload/images', {
+          const uploadResponse = await fetch(`${import.meta.env.VITE_API_URL}/upload/images`, {
             method: 'POST',
             body: formData,
           });
