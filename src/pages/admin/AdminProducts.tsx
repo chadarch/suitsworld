@@ -37,6 +37,7 @@ const AdminProducts = () => {
 
   const fetchProducts = async () => {
     try {
+      console.log('Fetching products...');
       setLoading(true);
       const params: any = {};
       
@@ -48,7 +49,9 @@ const AdminProducts = () => {
         params.sortOrder = 'desc';
       }
 
+      console.log('Fetching with params:', params);
       const response = await productAPI.getAll(params);
+      console.log('Fetched products:', response.data?.length || 0, 'products');
       setProducts(response.data || []);
     } catch (error) {
       console.error('Error fetching products:', error);

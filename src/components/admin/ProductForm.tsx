@@ -85,28 +85,43 @@ const ProductForm = ({ open, onOpenChange, onProductCreated }: ProductFormProps)
         });
 
         try {
+          console.log('Uploading images...', selectedImages.length, 'files');
           const uploadResponse = await fetch(`/api/upload/images`, {
             method: 'POST',
             body: formData,
           });
           
-          if (uploadResponse.ok) {
-            const uploadData = await uploadResponse.json();
+          console.log('Upload response status:', uploadResponse.status);
+          const uploadData = await uploadResponse.json();
+          console.log('Upload response data:', uploadData);
+          
+          if (uploadResponse.ok && uploadData.success) {
             images = uploadData.data || [];
+            console.log('Successfully uploaded images:', images);
+            
+            toast({
+              title: "Images Uploaded! 🖼️",
+              description: `Successfully uploaded ${images.length} image(s)`,
+              duration: 3000
+            });
           } else {
-            throw new Error('Failed to upload images');
+            throw new Error(uploadData.message || 'Failed to upload images');
           }
         } catch (uploadError) {
           console.error('Image upload failed:', uploadError);
+          
+          // Show more specific error message
           toast({
-            title: "Warning",
-            description: "Failed to upload images. Using placeholder instead.",
-            variant: "destructive"
+            title: "Image Upload Failed ⚠️",
+            description: `Upload failed: ${uploadError.message}. Using placeholder image instead.`,
+            variant: "destructive",
+            duration: 4000
           });
-          // Fallback to placeholder
+          
+          // Fallback to placeholder but continue with product creation
           images = [{
             url: "/lovable-uploads/4ba80d39-2697-438c-9ed7-86f8311f2935.png",
-            alt: "Product image",
+            alt: "Product image placeholder",
             isPrimary: true
           }];
         }
@@ -147,11 +162,14 @@ const ProductForm = ({ open, onOpenChange, onProductCreated }: ProductFormProps)
       };
 
       console.log('Creating product with data:', productData);
-      await productAPI.create(productData);
+      const response = await productAPI.create(productData);
+      console.log('Product creation response:', response);
       
+      // Show success message
       toast({
-        title: "Success",
-        description: "Product created successfully"
+        title: "Success! 🎉",
+        description: `Product "${formData.name}" has been created successfully!`,
+        duration: 5000
       });
 
       // Reset form and close dialog
@@ -165,12 +183,15 @@ const ProductForm = ({ open, onOpenChange, onProductCreated }: ProductFormProps)
         status: "active"
       });
       setSelectedImages([]);
-      onOpenChange(false);
       
-      // Call the callback to refresh the product list
+      // Call the callback to refresh the product list BEFORE closing dialog
       if (onProductCreated) {
-        onProductCreated();
+        console.log('Refreshing product list...');
+        await onProductCreated();
       }
+      
+      // Close dialog after refresh
+      onOpenChange(false);
     } catch (error) {
       console.error('Error creating product:', error);
       toast({
