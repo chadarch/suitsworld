@@ -56,8 +56,12 @@ router.post('/images', upload.array('images', 10), (req, res) => {
 
     const uploadedFiles = req.files.map(file => {
       console.log('Processing file:', file.filename, 'Path:', file.path);
+      // Use dynamic base URL - in production, use relative paths or environment variable
+      const baseUrl = process.env.NODE_ENV === 'production' 
+        ? (process.env.BASE_URL || '') 
+        : 'http://localhost:5000';
       return {
-        url: `http://localhost:5000/uploads/${file.filename}`,
+        url: `${baseUrl}/uploads/${file.filename}`,
         alt: file.originalname,
         isPrimary: false
       };
