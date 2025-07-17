@@ -57,11 +57,15 @@ app.use(cors({
       return callback(null, true);
     }
     // Allow all Vercel preview and production URLs for your project
-    if (/^https:\/\/suitsworld-.*-chads-projects-784b9423\.vercel\.app$/.test(origin)) {
+    if (/^https:\/\/.*\.vercel\.app$/.test(origin)) {
       return callback(null, true);
     }
     // Allow your old domain if needed
     if (origin === 'https://suits-world-design-kit.vercel.app') {
+      return callback(null, true);
+    }
+    // Allow all origins in production (not recommended for production, but helps debug)
+    if (process.env.NODE_ENV === 'production') {
       return callback(null, true);
     }
     // Otherwise, block
@@ -89,6 +93,7 @@ app.use(async (req, res, next) => {
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
+  console.log('Health check requested');
   res.json({
     success: true,
     message: 'Server is running',
@@ -96,6 +101,32 @@ app.get('/api/health', (req, res) => {
     environment: process.env.NODE_ENV || 'development',
     database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
   });
+});
+
+// Debug endpoint to check products
+app.get('/api/debug/products', async (req, res) => {
+  try {
+    const Product = require('../server/models/Product');
+    const totalProducts = await Product.countDocuments();
+    const activeProducts = await Product.countDocuments({ status: 'active' });
+    const featuredProducts = await Product.countDocuments({ featured: true, status: 'active' });
+    
+    res.json({
+      success: true,
+      counts: {
+        total: totalProducts,
+        active: activeProducts,
+        featured: featuredProducts
+      },
+      sampleProducts: await Product.find({ status: 'active' }).limit(3).select('name status featured')
+    });
+  } catch (error) {
+    console.error('Debug products error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
 });
 
 // API Routes
