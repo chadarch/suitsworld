@@ -6,6 +6,18 @@ const { GridFsStorage } = require('multer-gridfs-storage');
 const { MongoClient, GridFSBucket } = require('mongodb');
 require('dotenv').config();
 
+// Validate required environment variables
+if (!process.env.MONGODB_URI) {
+  console.error('❌ MONGODB_URI environment variable is required');
+  process.exit(1);
+}
+
+console.log('✅ Environment variables loaded:', {
+  NODE_ENV: process.env.NODE_ENV || 'development',
+  MONGODB_URI: process.env.MONGODB_URI ? '✅ Set' : '❌ Missing',
+  PORT: process.env.PORT || 'default'
+});
+
 // Import routes
 const userRoutes = require('../server/routes/users');
 const productRoutes = require('../server/routes/products');
@@ -46,6 +58,12 @@ app.use((req, res, next) => {
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
+  next();
+});
+
+// Add request logging for debugging
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.path}`, req.body ? 'with body' : 'no body');
   next();
 });
 
@@ -146,22 +164,41 @@ const storage = new GridFsStorage({
 const upload = multer({ storage });
 
 // Upload images to GridFS
-app.post('/api/upload/images', upload.array('images', 10), (req, res) => {
-  if (!req.files || req.files.length === 0) {
-    return res.status(400).json({
-      success: false,
-      message: 'No files uploaded',
+app.post('/api/upload/images', (req, res) => {
+  console.log('Image upload request received');
+  
+  const uploadMiddleware = upload.array('images', 10);
+  
+  uploadMiddleware(req, res, (err) => {
+    if (err) {
+      console.error('Upload error:', err);
+      return res.status(500).json({
+        success: false,
+        message: 'Error uploading files',
+        error: err.message
+      });
+    }
+    
+    if (!req.files || req.files.length === 0) {
+      console.log('No files uploaded');
+      return res.status(400).json({
+        success: false,
+        message: 'No files uploaded',
+      });
+    }
+    
+    console.log('Files uploaded:', req.files.length);
+    const uploadedFiles = req.files.map((file, idx) => ({
+      url: `/api/upload/images/${file.filename}`,
+      alt: file.originalname,
+      isPrimary: idx === 0,
+    }));
+    
+    res.json({
+      success: true,
+      message: 'Images uploaded successfully',
+      data: uploadedFiles,
     });
-  }
-  const uploadedFiles = req.files.map((file, idx) => ({
-    url: `/api/upload/images/${file.filename}`,
-    alt: file.originalname,
-    isPrimary: idx === 0,
-  }));
-  res.json({
-    success: true,
-    message: 'Images uploaded successfully',
-    data: uploadedFiles,
   });
 });
 

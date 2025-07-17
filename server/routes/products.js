@@ -123,6 +123,8 @@ router.post('/', async (req, res) => {
   try {
     const productData = req.body;
     
+    console.log('Creating product with data:', JSON.stringify(productData, null, 2));
+    
     // For demo purposes, set a default createdBy (in production, get from auth token)
     if (!productData.createdBy) {
       // Get the first user (admin) from the database as a fallback
@@ -130,19 +132,37 @@ router.post('/', async (req, res) => {
       const firstUser = await User.findOne().limit(1);
       if (firstUser) {
         productData.createdBy = firstUser._id;
+        console.log('Found user:', firstUser._id);
       } else {
-        return res.status(400).json({
-          success: false,
-          message: 'No users found in database. Please create a user first.'
+        // Create a default user if none exists
+        console.log('No users found, creating default user');
+        const defaultUser = new User({
+          username: 'admin',
+          email: 'admin@suits-world.com',
+          password: 'admin123',
+          role: 'admin',
+          profile: {
+            firstName: 'Admin',
+            lastName: 'User',
+            bio: 'Default admin user'
+          }
         });
+        await defaultUser.save();
+        productData.createdBy = defaultUser._id;
+        console.log('Created default user:', defaultUser._id);
       }
     }
 
     const product = new Product(productData);
     await product.save();
+    console.log('Product saved successfully:', product._id);
 
-    // Populate the created product
-    await product.populate('createdBy', 'username email');
+    // Try to populate the created product, but don't fail if it doesn't work
+    try {
+      await product.populate('createdBy', 'username email');
+    } catch (populateError) {
+      console.warn('Failed to populate createdBy:', populateError.message);
+    }
 
     res.status(201).json({
       success: true,
