@@ -28,6 +28,7 @@ const ProductForm = ({ open, onOpenChange, onProductCreated }: ProductFormProps)
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({
@@ -49,6 +50,8 @@ const ProductForm = ({ open, onOpenChange, onProductCreated }: ProductFormProps)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (isSubmitting) return;
+    
     // Validate required fields
     if (!formData.name || !formData.category || !formData.price || !formData.stock) {
       toast({
@@ -69,6 +72,8 @@ const ProductForm = ({ open, onOpenChange, onProductCreated }: ProductFormProps)
       return;
     }
 
+    setIsSubmitting(true);
+    
     try {
       // Prepare images array
       let images = [];
@@ -80,7 +85,7 @@ const ProductForm = ({ open, onOpenChange, onProductCreated }: ProductFormProps)
         });
 
         try {
-          const uploadResponse = await fetch(`${import.meta.env.VITE_API_URL}/upload/images`, {
+          const uploadResponse = await fetch(`/api/upload/images`, {
             method: 'POST',
             body: formData,
           });
@@ -173,6 +178,8 @@ const ProductForm = ({ open, onOpenChange, onProductCreated }: ProductFormProps)
         description: `Failed to create product: ${error.message || 'Unknown error'}`,
         variant: "destructive"
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -329,9 +336,9 @@ const ProductForm = ({ open, onOpenChange, onProductCreated }: ProductFormProps)
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" className="bg-slate-900 hover:bg-slate-800">
+            <Button type="submit" className="bg-slate-900 hover:bg-slate-800" disabled={isSubmitting}>
               <Save className="w-4 h-4 mr-2" />
-              Create Product
+              {isSubmitting ? "Creating..." : "Create Product"}
             </Button>
           </DialogFooter>
         </form>

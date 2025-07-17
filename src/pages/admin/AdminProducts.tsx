@@ -41,9 +41,9 @@ const AdminProducts = () => {
       const params: any = {};
       
       if (searchTerm) params.search = searchTerm;
-      if (selectedCategory) params.category = selectedCategory;
-      if (selectedStatus) params.status = selectedStatus;
-      if (sortBy) {
+      if (selectedCategory && selectedCategory !== 'all') params.category = selectedCategory;
+      if (selectedStatus && selectedStatus !== 'all') params.status = selectedStatus;
+      if (sortBy && sortBy !== 'default') {
         params.sortBy = sortBy;
         params.sortOrder = 'desc';
       }
@@ -124,35 +124,38 @@ const AdminProducts = () => {
                       onChange={(e) => setSearchTerm(e.target.value)}
                     />
                   </div>
-                  <Select>
+                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                     <SelectTrigger>
                       <SelectValue placeholder="Category" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="all">All Categories</SelectItem>
                       <SelectItem value="mens">Men's Suits</SelectItem>
                       <SelectItem value="womens">Women's Suits</SelectItem>
                       <SelectItem value="childrens">Children's Suits</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Select>
+                  <Select value={selectedStatus} onValueChange={setSelectedStatus}>
                     <SelectTrigger>
                       <SelectValue placeholder="Status" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="all">All Statuses</SelectItem>
                       <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="low_stock">Low Stock</SelectItem>
-                      <SelectItem value="out_of_stock">Out of Stock</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                      <SelectItem value="draft">Draft</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Select>
+                  <Select value={sortBy} onValueChange={setSortBy}>
                     <SelectTrigger>
                       <SelectValue placeholder="Sort by" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="default">Default</SelectItem>
                       <SelectItem value="name">Name</SelectItem>
                       <SelectItem value="price">Price</SelectItem>
-                      <SelectItem value="stock">Stock</SelectItem>
-                      <SelectItem value="sales">Sales</SelectItem>
+                      <SelectItem value="createdAt">Date Created</SelectItem>
+                      <SelectItem value="inventory.quantity">Stock</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
