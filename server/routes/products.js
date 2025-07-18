@@ -161,6 +161,16 @@ router.post('/', async (req, res) => {
     }
 
     const product = new Product(productData);
+    
+    // Validate that images are properly formatted
+    if (product.images && product.images.length > 0) {
+      product.images = product.images.map((img, index) => ({
+        url: img.url || '/lovable-uploads/4ba80d39-2697-438c-9ed7-86f8311f2935.png',
+        alt: img.alt || `Product image ${index + 1}`,
+        isPrimary: index === 0
+      }));
+    }
+    
     await product.save();
     console.log('Product saved successfully:', product._id);
 

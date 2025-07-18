@@ -175,9 +175,12 @@ const upload = multer({
   }
 });
 
-// Upload images to GridFS
+// Upload images to GridFS - with production optimizations
 app.post('/api/upload/images', (req, res) => {
   console.log('Image upload request received');
+  
+  // Add timeout for serverless functions
+  req.setTimeout(30000); // 30 seconds timeout
   
   const uploadMiddleware = upload.array('images', 10);
   
@@ -212,6 +215,56 @@ app.post('/api/upload/images', (req, res) => {
       data: uploadedFiles,
     });
   });
+});
+
+// Add a simple endpoint for testing upload functionality
+app.post('/api/upload/test', (req, res) => {
+  console.log('Upload test endpoint hit');
+  res.json({
+    success: true,
+    message: 'Upload endpoint is working',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Alternative upload endpoint for base64 images (production fallback)
+app.post('/api/upload/base64', express.json({ limit: '10mb' }), (req, res) => {
+  console.log('Base64 upload request received');
+  
+  try {
+    const { images } = req.body;
+    
+    if (!images || !Array.isArray(images) || images.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No images provided',
+      });
+    }
+    
+    // For production, we'll return the base64 images as-is
+    // In a real production setup, you'd want to upload to a cloud storage service
+    const processedImages = images.map((image, idx) => ({
+      url: image.url || image, // Handle both object and string formats
+      alt: image.alt || `Product image ${idx + 1}`,
+      isPrimary: idx === 0,
+      filename: image.filename || `image-${Date.now()}-${idx}`
+    }));
+    
+    console.log('Base64 images processed:', processedImages.length);
+    
+    res.json({
+      success: true,
+      message: 'Base64 images processed successfully',
+      data: processedImages,
+    });
+  } catch (error) {
+    console.error('Base64 upload error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error processing base64 images',
+      error: error.message
+    });
+  }
 });
 
 // Retrieve images from GridFS

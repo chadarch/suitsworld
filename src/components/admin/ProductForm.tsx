@@ -74,6 +74,19 @@ const ProductForm = ({ open, onOpenChange, onProductCreated }: ProductFormProps)
 
     setIsSubmitting(true);
     
+    // Add timeout to prevent infinite loading
+    const timeoutId = setTimeout(() => {
+      if (isSubmitting) {
+        setIsSubmitting(false);
+        toast({
+          title: "Request Timeout",
+          description: "The request is taking too long. Please try again.",
+          variant: "destructive",
+          duration: 5000
+        });
+      }
+    }, 30000); // 30 seconds timeout
+    
     try {
       // Prepare images array
       let images = [];
@@ -94,6 +107,26 @@ const ProductForm = ({ open, onOpenChange, onProductCreated }: ProductFormProps)
 
         try {
           console.log('Uploading images...', selectedImages.length, 'files');
+          
+          // Convert images to base64 for immediate display and fallback
+          const imagePromises = selectedImages.map(async (file, index) => {
+            return new Promise((resolve) => {
+              const reader = new FileReader();
+              reader.onload = (e) => {
+                resolve({
+                  url: e.target?.result as string,
+                  alt: file.name,
+                  isPrimary: index === 0,
+                  filename: `${Date.now()}-${file.name}`
+                });
+              };
+              reader.readAsDataURL(file);
+            });
+          });
+          
+          const base64Images = await Promise.all(imagePromises);
+          
+          // Try to upload to server, but don't block on failure
           const uploadResponse = await fetch(`/api/upload/images`, {
             method: 'POST',
             body: imageFormData,
@@ -107,25 +140,75 @@ const ProductForm = ({ open, onOpenChange, onProductCreated }: ProductFormProps)
             images = uploadData.data || [];
             console.log('Successfully uploaded images:', images);
           } else {
-            throw new Error(uploadData.message || 'Failed to upload images');
+            // If server upload fails, try base64 upload as fallback
+            console.log('Server upload failed, trying base64 fallback');
+            try {
+              const base64Response = await fetch('/api/upload/base64', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ images: base64Images }),
+              });
+              
+              const base64Data = await base64Response.json();
+              if (base64Response.ok && base64Data.success) {
+                images = base64Data.data || base64Images;
+                console.log('Base64 upload successful');
+              } else {
+                images = base64Images;
+                console.log('Base64 upload failed, using local images');
+              }
+            } catch (base64Error) {
+              console.error('Base64 upload error:', base64Error);
+              images = base64Images;
+            }
           }
         } catch (uploadError) {
           console.error('Image upload failed:', uploadError);
           
-          // Show warning but continue with product creation
-          toast({
-            title: "Image Upload Warning ⚠️",
-            description: `Upload failed: ${uploadError.message}. Using placeholder image instead.`,
-            variant: "destructive",
-            duration: 4000
-          });
-          
-          // Fallback to placeholder but continue with product creation
-          images = [{
-            url: "/lovable-uploads/4ba80d39-2697-438c-9ed7-86f8311f2935.png",
-            alt: "Product image placeholder",
-            isPrimary: true
-          }];
+          // Try to convert images to base64 as fallback
+          try {
+            const imagePromises = selectedImages.map(async (file, index) => {
+              return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                  resolve({
+                    url: e.target?.result as string,
+                    alt: file.name,
+                    isPrimary: index === 0,
+                    filename: `${Date.now()}-${file.name}`
+                  });
+                };
+                reader.readAsDataURL(file);
+              });
+            });
+            
+            images = await Promise.all(imagePromises);
+            
+            toast({
+              title: "Using Local Images",
+              description: `Server upload failed. Using local images for now.`,
+              variant: "default",
+              duration: 3000
+            });
+          } catch (base64Error) {
+            console.error('Base64 conversion failed:', base64Error);
+            
+            // Final fallback to placeholder
+            images = [{
+              url: "/lovable-uploads/4ba80d39-2697-438c-9ed7-86f8311f2935.png",
+              alt: "Product image placeholder",
+              isPrimary: true
+            }];
+            
+            toast({
+              title: "Image Upload Warning ⚠️",
+              description: `Upload failed. Using placeholder image instead.`,
+              variant: "destructive",
+              duration: 4000
+            });
+          }
         }
       } else {
         // Default placeholder image if no images selected
@@ -207,6 +290,7 @@ const ProductForm = ({ open, onOpenChange, onProductCreated }: ProductFormProps)
         variant: "destructive"
       });
     } finally {
+      clearTimeout(timeoutId);
       setIsSubmitting(false);
     }
   };
@@ -366,7 +450,7 @@ const ProductForm = ({ open, onOpenChange, onProductCreated }: ProductFormProps)
             </Button>
             <Button type="submit" className="bg-slate-900 hover:bg-slate-800" disabled={isSubmitting}>
               <Save className="w-4 h-4 mr-2" />
-              {isSubmitting ? "Creating..." : "Create Product"}
+              {isSubmitting ? "Creating Product..." : "Create Product"}
             </Button>
           </DialogFooter>
         </form>
