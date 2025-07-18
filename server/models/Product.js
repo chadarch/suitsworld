@@ -164,6 +164,28 @@ productSchema.virtual('profitMargin').get(function() {
   return 0;
 });
 
+// Virtual to fix image URLs for production
+productSchema.virtual('fixedImages').get(function() {
+  if (!this.images || this.images.length === 0) {
+    return [{
+      url: "/lovable-uploads/4ba80d39-2697-438c-9ed7-86f8311f2935.png",
+      alt: "Product image",
+      isPrimary: true
+    }];
+  }
+  
+  const baseUrl = process.env.NODE_ENV === 'production' 
+    ? process.env.BASE_URL || 'https://suitsworld.vercel.app'
+    : 'http://localhost:5000';
+  
+  return this.images.map(img => ({
+    ...img.toObject(),
+    url: img.url.startsWith('http') ? img.url : 
+         img.url.startsWith('localhost:5000') ? img.url.replace('localhost:5000', baseUrl.replace('http://', '').replace('https://', '')) :
+         img.url.startsWith('/api') ? `${baseUrl}${img.url}` : img.url
+  }));
+});
+
 // Pre-save middleware to ensure only one primary image
 productSchema.pre('save', function(next) {
   if (this.images && this.images.length > 0) {

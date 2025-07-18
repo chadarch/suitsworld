@@ -78,6 +78,10 @@ app.use(cors({
     if (/^https:\/\/.*\.vercel\.app$/.test(origin)) {
       return callback(null, true);
     }
+    // Allow your specific domain
+    if (origin === 'https://suitsworld.vercel.app') {
+      return callback(null, true);
+    }
     // Allow your old domain if needed
     if (origin === 'https://suits-world-design-kit.vercel.app') {
       return callback(null, true);
@@ -147,6 +151,40 @@ app.get('/api/debug/products', async (req, res) => {
   }
 });
 
+// Fix existing products with localhost URLs
+app.post('/api/fix-image-urls', async (req, res) => {
+  try {
+    const Product = require('../server/models/Product');
+    const products = await Product.find({
+      'images.url': { $regex: 'localhost:5000' }
+    });
+    
+    console.log(`Found ${products.length} products with localhost URLs`);
+    
+    const baseUrl = process.env.BASE_URL || 'https://suitsworld.vercel.app';
+    
+    for (const product of products) {
+      product.images = product.images.map(img => ({
+        ...img.toObject(),
+        url: img.url.replace('localhost:5000', baseUrl.replace('http://', '').replace('https://', ''))
+      }));
+      await product.save();
+    }
+    
+    res.json({
+      success: true,
+      message: `Fixed ${products.length} products`,
+      fixedProducts: products.length
+    });
+  } catch (error) {
+    console.error('Fix image URLs error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 // API Routes
 app.use('/api/users', userRoutes);
 app.use('/api/products', productRoutes);
@@ -203,8 +241,14 @@ app.post('/api/upload/images', (req, res) => {
     }
     
     console.log('Files uploaded:', req.files.length);
+    
+    // Get the correct base URL for production
+    const baseUrl = process.env.NODE_ENV === 'production' 
+      ? process.env.BASE_URL || 'https://suitsworld.vercel.app'
+      : 'http://localhost:5000';
+    
     const uploadedFiles = req.files.map((file, idx) => ({
-      url: `/api/upload/images/${file.filename}`,
+      url: `${baseUrl}/api/upload/images/${file.filename}`,
       alt: file.originalname,
       isPrimary: idx === 0,
     }));
@@ -270,14 +314,29 @@ app.post('/api/upload/base64', express.json({ limit: '10mb' }), (req, res) => {
 // Retrieve images from GridFS
 app.get('/api/upload/images/:filename', async (req, res) => {
   try {
+    console.log('Retrieving image:', req.params.filename);
     const { db, bucket } = await connectDB();
     const file = await db.collection('uploads.files').findOne({ filename: req.params.filename });
     if (!file) {
+      console.log('File not found:', req.params.filename);
       return res.status(404).json({ success: false, message: 'File not found' });
     }
-    res.set('Content-Type', file.contentType || 'application/octet-stream');
-    bucket.openDownloadStreamByName(req.params.filename).pipe(res);
+    
+    // Set proper headers for image serving
+    res.set('Content-Type', file.contentType || 'image/jpeg');
+    res.set('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
+    res.set('Content-Length', file.length);
+    
+    const downloadStream = bucket.openDownloadStreamByName(req.params.filename);
+    
+    downloadStream.on('error', (error) => {
+      console.error('GridFS download error:', error);
+      res.status(500).json({ success: false, message: 'Error streaming file', error: error.message });
+    });
+    
+    downloadStream.pipe(res);
   } catch (error) {
+    console.error('Error retrieving file:', error);
     res.status(500).json({ success: false, message: 'Error retrieving file', error: error.message });
   }
 });
