@@ -77,18 +77,26 @@ const ProductForm = ({ open, onOpenChange, onProductCreated }: ProductFormProps)
     try {
       // Prepare images array
       let images = [];
+      
+      // Show initial loading message
+      toast({
+        title: "Creating Product...",
+        description: "Please wait while we process your request",
+        duration: 3000
+      });
+
       if (selectedImages.length > 0) {
         // Upload images to server
-        const formData = new FormData();
+        const imageFormData = new FormData();
         selectedImages.forEach((image) => {
-          formData.append('images', image);
+          imageFormData.append('images', image);
         });
 
         try {
           console.log('Uploading images...', selectedImages.length, 'files');
           const uploadResponse = await fetch(`/api/upload/images`, {
             method: 'POST',
-            body: formData,
+            body: imageFormData,
           });
           
           console.log('Upload response status:', uploadResponse.status);
@@ -98,21 +106,15 @@ const ProductForm = ({ open, onOpenChange, onProductCreated }: ProductFormProps)
           if (uploadResponse.ok && uploadData.success) {
             images = uploadData.data || [];
             console.log('Successfully uploaded images:', images);
-            
-            toast({
-              title: "Images Uploaded! 🖼️",
-              description: `Successfully uploaded ${images.length} image(s)`,
-              duration: 3000
-            });
           } else {
             throw new Error(uploadData.message || 'Failed to upload images');
           }
         } catch (uploadError) {
           console.error('Image upload failed:', uploadError);
           
-          // Show more specific error message
+          // Show warning but continue with product creation
           toast({
-            title: "Image Upload Failed ⚠️",
+            title: "Image Upload Warning ⚠️",
             description: `Upload failed: ${uploadError.message}. Using placeholder image instead.`,
             variant: "destructive",
             duration: 4000
@@ -165,33 +167,38 @@ const ProductForm = ({ open, onOpenChange, onProductCreated }: ProductFormProps)
       const response = await productAPI.create(productData);
       console.log('Product creation response:', response);
       
-      // Show success message
-      toast({
-        title: "Success! 🎉",
-        description: `Product "${formData.name}" has been created successfully!`,
-        duration: 5000
-      });
+      // Check if response is successful
+      if (response && response.success) {
+        // Show success message
+        toast({
+          title: "Success! 🎉",
+          description: `Product "${formData.name}" has been created successfully!`,
+          duration: 5000
+        });
 
-      // Reset form and close dialog
-      setFormData({
-        name: "",
-        sku: "",
-        category: "",
-        price: "",
-        stock: "",
-        description: "",
-        status: "active"
-      });
-      setSelectedImages([]);
-      
-      // Call the callback to refresh the product list BEFORE closing dialog
-      if (onProductCreated) {
-        console.log('Refreshing product list...');
-        await onProductCreated();
+        // Reset form and close dialog
+        setFormData({
+          name: "",
+          sku: "",
+          category: "",
+          price: "",
+          stock: "",
+          description: "",
+          status: "active"
+        });
+        setSelectedImages([]);
+        
+        // Call the callback to refresh the product list BEFORE closing dialog
+        if (onProductCreated) {
+          console.log('Refreshing product list...');
+          await onProductCreated();
+        }
+        
+        // Close dialog after refresh
+        onOpenChange(false);
+      } else {
+        throw new Error(response?.message || 'Product creation failed');
       }
-      
-      // Close dialog after refresh
-      onOpenChange(false);
     } catch (error) {
       console.error('Error creating product:', error);
       toast({

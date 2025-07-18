@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const Product = require('../models/Product');
 
 // @route   GET /api/products
@@ -129,27 +130,33 @@ router.post('/', async (req, res) => {
     if (!productData.createdBy) {
       // Get the first user (admin) from the database as a fallback
       const User = require('../models/User');
-      const firstUser = await User.findOne().limit(1);
-      if (firstUser) {
-        productData.createdBy = firstUser._id;
-        console.log('Found user:', firstUser._id);
-      } else {
+      let firstUser = await User.findOne().limit(1);
+      if (!firstUser) {
         // Create a default user if none exists
         console.log('No users found, creating default user');
-        const defaultUser = new User({
-          username: 'admin',
-          email: 'admin@suits-world.com',
-          password: 'admin123',
-          role: 'admin',
-          profile: {
-            firstName: 'Admin',
-            lastName: 'User',
-            bio: 'Default admin user'
-          }
-        });
-        await defaultUser.save();
-        productData.createdBy = defaultUser._id;
-        console.log('Created default user:', defaultUser._id);
+        try {
+          const defaultUser = new User({
+            username: 'admin',
+            email: 'admin@suits-world.com',
+            password: 'admin123',
+            role: 'admin',
+            profile: {
+              firstName: 'Admin',
+              lastName: 'User',
+              bio: 'Default admin user'
+            }
+          });
+          firstUser = await defaultUser.save();
+          console.log('Created default user:', firstUser._id);
+        } catch (userError) {
+          console.error('Error creating default user:', userError);
+          // Use a fallback ObjectId if user creation fails
+          productData.createdBy = new mongoose.Types.ObjectId();
+        }
+      }
+      if (firstUser) {
+        productData.createdBy = firstUser._id;
+        console.log('Using user:', firstUser._id);
       }
     }
 

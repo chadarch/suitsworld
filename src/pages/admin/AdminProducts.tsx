@@ -52,7 +52,17 @@ const AdminProducts = () => {
       console.log('Fetching with params:', params);
       const response = await productAPI.getAll(params);
       console.log('Fetched products:', response.data?.length || 0, 'products');
-      setProducts(response.data || []);
+      
+      // Handle both success response structure and direct data
+      if (response.success && response.data) {
+        setProducts(response.data);
+      } else if (Array.isArray(response.data)) {
+        setProducts(response.data);
+      } else if (Array.isArray(response)) {
+        setProducts(response);
+      } else {
+        setProducts([]);
+      }
     } catch (error) {
       console.error('Error fetching products:', error);
       setProducts([]);
