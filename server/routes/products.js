@@ -126,38 +126,11 @@ router.post('/', async (req, res) => {
     
     console.log('Creating product with data:', JSON.stringify(productData, null, 2));
     
-    // For demo purposes, set a default createdBy (in production, get from auth token)
+    // Fast fallback for createdBy - don't block on user operations
     if (!productData.createdBy) {
-      // Get the first user (admin) from the database as a fallback
-      const User = require('../models/User');
-      let firstUser = await User.findOne().limit(1);
-      if (!firstUser) {
-        // Create a default user if none exists
-        console.log('No users found, creating default user');
-        try {
-          const defaultUser = new User({
-            username: 'admin',
-            email: 'admin@suits-world.com',
-            password: 'admin123',
-            role: 'admin',
-            profile: {
-              firstName: 'Admin',
-              lastName: 'User',
-              bio: 'Default admin user'
-            }
-          });
-          firstUser = await defaultUser.save();
-          console.log('Created default user:', firstUser._id);
-        } catch (userError) {
-          console.error('Error creating default user:', userError);
-          // Use a fallback ObjectId if user creation fails
-          productData.createdBy = new mongoose.Types.ObjectId();
-        }
-      }
-      if (firstUser) {
-        productData.createdBy = firstUser._id;
-        console.log('Using user:', firstUser._id);
-      }
+      // Use a default ObjectId instead of database lookup
+      productData.createdBy = new mongoose.Types.ObjectId('64a7b8e123456789abcdef01');
+      console.log('Using default createdBy');
     }
 
     const product = new Product(productData);

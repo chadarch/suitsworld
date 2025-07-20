@@ -80,6 +80,12 @@ const AdminProducts = () => {
     }
   };
 
+  const handleOptimisticAdd = (newProduct: any) => {
+    // Add the product immediately to the UI
+    setProducts(prev => [newProduct, ...prev]);
+    console.log('Added product optimistically:', newProduct.name);
+  };
+
   const getStatusBadge = (status: string, stock: number) => {
     if (status === "out_of_stock" || stock === 0) {
       return <Badge variant="destructive">Out of Stock</Badge>;
@@ -334,6 +340,7 @@ const AdminProducts = () => {
         open={showProductForm} 
         onOpenChange={setShowProductForm} 
         onProductCreated={fetchProducts}
+        onOptimisticAdd={handleOptimisticAdd}
       />
     </AdminLayout>
   );

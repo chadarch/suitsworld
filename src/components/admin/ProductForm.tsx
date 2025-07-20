@@ -13,9 +13,10 @@ interface ProductFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onProductCreated?: () => void;
+  onOptimisticAdd?: (product: any) => void;
 }
 
-const ProductForm = ({ open, onOpenChange, onProductCreated }: ProductFormProps) => {
+const ProductForm = ({ open, onOpenChange, onProductCreated, onOptimisticAdd }: ProductFormProps) => {
   const [formData, setFormData] = useState({
     name: "",
     sku: "",
@@ -29,6 +30,37 @@ const ProductForm = ({ open, onOpenChange, onProductCreated }: ProductFormProps)
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const compressImage = (file: File, maxWidth = 800, quality = 0.8): Promise<File> => {
+    return new Promise((resolve) => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+      
+      img.onload = () => {
+        const ratio = Math.min(maxWidth / img.width, maxWidth / img.height);
+        canvas.width = img.width * ratio;
+        canvas.height = img.height * ratio;
+        
+        ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+        
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const compressedFile = new File([blob], file.name, {
+              type: file.type,
+              lastModified: Date.now(),
+            });
+            resolve(compressedFile);
+          } else {
+            resolve(file);
+          }
+        }, file.type, quality);
+      };
+      
+      img.onerror = () => resolve(file);
+      img.src = URL.createObjectURL(file);
+    });
+  };
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({
@@ -87,6 +119,8 @@ const ProductForm = ({ open, onOpenChange, onProductCreated }: ProductFormProps)
       }
     }, 30000); // 30 seconds timeout
     
+    setIsSubmitting(true);
+    
     try {
       // Prepare images array
       let images = [];
@@ -94,121 +128,54 @@ const ProductForm = ({ open, onOpenChange, onProductCreated }: ProductFormProps)
       // Show initial loading message
       toast({
         title: "Creating Product...",
-        description: "Please wait while we process your request",
-        duration: 3000
+        description: "Processing your request...",
+        duration: 2000
       });
 
       if (selectedImages.length > 0) {
-        // Upload images to server
+        // Compress images before upload for better performance
+        const compressedImages = await Promise.all(
+          selectedImages.map(img => compressImage(img))
+        );
+        
         const imageFormData = new FormData();
-        selectedImages.forEach((image) => {
+        compressedImages.forEach((image) => {
           imageFormData.append('images', image);
         });
 
         try {
-          console.log('Uploading images...', selectedImages.length, 'files');
+          console.log('Uploading', compressedImages.length, 'compressed images...');
           
-          // Convert images to base64 for immediate display and fallback
-          const imagePromises = selectedImages.map(async (file, index) => {
-            return new Promise((resolve) => {
-              const reader = new FileReader();
-              reader.onload = (e) => {
-                resolve({
-                  url: e.target?.result as string,
-                  alt: file.name,
-                  isPrimary: index === 0,
-                  filename: `${Date.now()}-${file.name}`
-                });
-              };
-              reader.readAsDataURL(file);
-            });
-          });
-          
-          const base64Images = await Promise.all(imagePromises);
-          
-          // Try to upload to server, but don't block on failure
           const uploadResponse = await fetch(`/api/upload/images`, {
             method: 'POST',
             body: imageFormData,
           });
           
-          console.log('Upload response status:', uploadResponse.status);
-          const uploadData = await uploadResponse.json();
-          console.log('Upload response data:', uploadData);
-          
-          if (uploadResponse.ok && uploadData.success) {
-            images = uploadData.data || [];
-            console.log('Successfully uploaded images:', images);
-          } else {
-            // If server upload fails, try base64 upload as fallback
-            console.log('Server upload failed, trying base64 fallback');
-            try {
-              const base64Response = await fetch('/api/upload/base64', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ images: base64Images }),
-              });
-              
-              const base64Data = await base64Response.json();
-              if (base64Response.ok && base64Data.success) {
-                images = base64Data.data || base64Images;
-                console.log('Base64 upload successful');
-              } else {
-                images = base64Images;
-                console.log('Base64 upload failed, using local images');
-              }
-            } catch (base64Error) {
-              console.error('Base64 upload error:', base64Error);
-              images = base64Images;
+          if (uploadResponse.ok) {
+            const uploadData = await uploadResponse.json();
+            if (uploadData.success && uploadData.data) {
+              images = uploadData.data;
+              console.log('Images uploaded successfully');
             }
           }
-        } catch (uploadError) {
-          console.error('Image upload failed:', uploadError);
           
-          // Try to convert images to base64 as fallback
-          try {
-            const imagePromises = selectedImages.map(async (file, index) => {
-              return new Promise((resolve) => {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                  resolve({
-                    url: e.target?.result as string,
-                    alt: file.name,
-                    isPrimary: index === 0,
-                    filename: `${Date.now()}-${file.name}`
-                  });
-                };
-                reader.readAsDataURL(file);
-              });
-            });
-            
-            images = await Promise.all(imagePromises);
-            
-            toast({
-              title: "Using Local Images",
-              description: `Server upload failed. Using local images for now.`,
-              variant: "default",
-              duration: 3000
-            });
-          } catch (base64Error) {
-            console.error('Base64 conversion failed:', base64Error);
-            
-            // Final fallback to placeholder
+          // If upload fails, use placeholder (don't block the process)
+          if (images.length === 0) {
+            console.log('Image upload failed, using placeholder');
             images = [{
               url: "/lovable-uploads/4ba80d39-2697-438c-9ed7-86f8311f2935.png",
-              alt: "Product image placeholder",
+              alt: "Product image",
               isPrimary: true
             }];
-            
-            toast({
-              title: "Image Upload Warning ⚠️",
-              description: `Upload failed. Using placeholder image instead.`,
-              variant: "destructive",
-              duration: 4000
-            });
           }
+        } catch (uploadError) {
+          console.error('Image upload error:', uploadError);
+          // Use placeholder and continue
+          images = [{
+            url: "/lovable-uploads/4ba80d39-2697-438c-9ed7-86f8311f2935.png",
+            alt: "Product image",
+            isPrimary: true
+          }];
         }
       } else {
         // Default placeholder image if no images selected
@@ -247,19 +214,41 @@ const ProductForm = ({ open, onOpenChange, onProductCreated }: ProductFormProps)
       };
 
       console.log('Creating product with data:', productData);
+      
+      // Optimistic update - add product to UI immediately
+      if (onOptimisticAdd) {
+        const optimisticProduct = {
+          ...productData,
+          _id: 'temp-' + Date.now(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          isOptimistic: true
+        };
+        onOptimisticAdd(optimisticProduct);
+        
+        // Close dialog immediately for better UX
+        onOpenChange(false);
+        
+        toast({
+          title: "Adding Product...",
+          description: `"${formData.name}" is being added to your catalog`,
+          duration: 3000
+        });
+      }
+      
       const response = await productAPI.create(productData);
       console.log('Product creation response:', response);
       
       // Check if response is successful
       if (response && response.success) {
-        // Show success message
+        // Show final success message
         toast({
           title: "Success! 🎉",
-          description: `Product "${formData.name}" has been created successfully!`,
-          duration: 5000
+          description: `Product "${formData.name}" has been added to your catalog!`,
+          duration: 3000
         });
 
-        // Reset form and close dialog
+        // Reset form
         setFormData({
           name: "",
           sku: "",
@@ -271,14 +260,11 @@ const ProductForm = ({ open, onOpenChange, onProductCreated }: ProductFormProps)
         });
         setSelectedImages([]);
         
-        // Call the callback to refresh the product list BEFORE closing dialog
+        // Refresh the product list to replace optimistic entry with real data
         if (onProductCreated) {
-          console.log('Refreshing product list...');
+          console.log('Refreshing product list with real data...');
           await onProductCreated();
         }
-        
-        // Close dialog after refresh
-        onOpenChange(false);
       } else {
         throw new Error(response?.message || 'Product creation failed');
       }
